@@ -1,0 +1,299 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression from sklearn.linear_model import LogisticRegression
+data = np.genfromtxt('movieDataReplicationSet.csv', delimiter=',') data_slice = data[1:,:]
+# Replace "N/A" and blank values with NaNs data[data == 'N/A'] = np.nan
+data[data == ''] = np.nan
+# Convert the numerical data to float, treating NaNs as missing values numerical_data = data[1:].astype(float)
+# Save the numerical data to a new file
+np.savetxt("data.csv", numerical_data, delimiter=',', fmt='%1.2f')
+# Slice the numerical data for computation dataNum = numerical_data[0:1098, 0:400] data_pd = pd.DataFrame(dataNum)
+columnMeans = np.nanmean(dataNum,axis=0) columnMedians = np.nanmedian(dataNum,axis=0)
+print(columnMeans) print(columnMedians)
+meanMax = np.max(columnMeans) medianMax = np.max(columnMedians) meanMin = np.min(columnMeans) medianMin = np.min(columnMedians)
+meanMaxLoc = np.where(columnMeans==meanMax) medianMaxLoc = np.where(columnMedians==medianMax) meanMinLoc = np.where(columnMeans==meanMin) medianMinLoc = np.where(columnMedians==medianMin) print(medianMinLoc)
+maxmeanCol = data[:,220] maxmedianCol = data[:,264] minmeanCol = data[:,27] print(maxmeanCol) print(maxmedianCol) print(minmeanCol)
+from scipy import stats
+columnModes = stats.mode(dataNum,axis=0,nan_policy='omit') modalValues = columnModes.mode
+print(modalValues)
+
+meanOfMeans = np.mean(columnMeans,axis=0) print(meanOfMeans)
+#D2
+# sample standard deviation columnSD = np.zeros(400) for i in range(400):
+col_data = dataNum[:, i]
+# Ignore NaN values while calculating mean and standard deviation
+SD = np.nanstd(col_data, ddof=1) # Set ddof=1 for sample standard deviation
+columnSD[i] = SD
+meanSD = np.mean(columnSD) medianSD = np.median(columnSD)
+#mean absolute deviation columnMAD = np.zeros(400) for i in range(400):
+col_data = dataNum[:, i]
+# Ignore NaN values while calculating mean mean = np.nanmean(col_data)
+# Compute absolute deviations from the mean
+
+abs_deviations = np.abs(col_data - mean)
+# Calculate the mean absolute deviation mad = np.nanmean(abs_deviations)
+columnMAD[i] = mad
+meanMAD = np.mean(columnMAD)
+medianMAD = np.median(columnMAD)
+#correlation
+masked_ratings = np.ma.masked_invalid(dataNum) # Mask NaN values corr_matrix = np.ma.corrcoef(masked_ratings.T)
+#corr_mean = np.mean(corr_matrix) sum=0
+for i in range(400):
+col_data = corr_matrix[:,i] for j in range(400):
+sum += col_data[j]
+corr_mean = sum/160000 print(corr_mean)
+corr_mean = np.nanmean(data_pd.corr()) corr_median = np.nanmedian(data_pd.corr())
+
+#D3
+data2 = np.genfromtxt('movieDataReplicationSet.csv',delimiter=',') data_pd = pd.DataFrame(data2)
+ratings_sw1 = data_pd.iloc[:, 273] # Ratings for Star Wars I at column 273 ratings_sw2=data_pd.iloc[:,93] #RatingsforStarWarsIIatcolumn93 ratings_t = data_pd.iloc[:,292]
+# Find indices of non-missing values for both movies
+valid_indices = np.logical_and(~np.isnan(ratings_sw1), ~np.isnan(ratings_sw2))
+# Filter out ratings where both movies are rated
+ratings_sw1_both = ratings_sw1[valid_indices]
+ratings_sw2_both = ratings_sw2[valid_indices]
+sw_combined = np.stack((ratings_sw2_both,ratings_sw1_both), axis=1)
+varMeans = np.mean(sw_combined,axis=0) # take the mean of each column
+varMedians = np.median(sw_combined,axis=0) # take the median of each column
+varSD = np.std(sw_combined, axis=0) # take the SD of each column
+varCorrs1 = np.corrcoef(sw_combined[:,0],sw_combined[:,1]) # Calculate the correlation matrix (pearsons r) between the variables
+plt.plot(sw_combined[:,0],sw_combined[:,1],'o',markersize=5, color='black') #Remember: Fields are not in quotes,
+#attributes are. Unless the attributes are numbers plt.xlabel('Star Wars II') #Remember to label your axes. #Be specific (what does this axis represent, with units)
+
+plt.ylabel('Star Wars I')
+regressContainer = np.empty([len(sw_combined),5]) regressContainer[:] = np.NaN
+for ii in range(len(sw_combined)):
+regressContainer[ii,0] = sw_combined[ii,0] regressContainer[ii,1] = sw_combined[ii,1] regressContainer[ii,2] = sw_combined[ii,0]*sw_combined[ii,1] regressContainer[ii,3] = sw_combined[ii,0]**2 regressContainer[ii,4] = sw_combined[ii,1]**2
+print(np.sum(regressContainer[:,0]))
+from scipy.stats import linregress
+slope1, intercept1, r_value1, p_value1, std_err1 = linregress(ratings_sw2_both, ratings_sw1_both)
+# Print slope and intercept print("Slope:", slope1) print("Intercept:", intercept1)
+n = len(sw_combined)
+mNumerator = n*np.sum(regressContainer[:,2]) - np.sum(regressContainer[:,0])*np.sum(regressContainer[:,1])
+mDenominator = n*np.sum(regressContainer[:,3]) - (np.sum(regressContainer[:,0]))**2 m = mNumerator/mDenominator
+
+bNumerator = np.sum(regressContainer[:,1]) - m * np.sum(regressContainer[:,0]) bDenominator = n
+b = bNumerator/bDenominator
+rSquared1 = varCorrs1[0,1]**2
+plt.plot(sw_combined[:,0],sw_combined[:,1],'o',markersize=3)
+plt.xlabel('Star Wars II')
+plt.ylabel('Star Wars I')
+yHat1 = m*sw_combined[:,0] + b # slope-intercept form, y = mx + b
+plt.plot(sw_combined[:,0],yHat1,color='orange',linewidth=3) # orange line for the fox
+plt.title('By Hand: R^2 = {:.3f}'.format(rSquared1)) # add title, r-squared rounded to nearest thousandth
+#RMSE
+RMSE_sw = np.sqrt(np.mean((ratings_sw1_both - yHat1)**2))
+valid_indices2 = np.logical_and(~np.isnan(ratings_sw1), ~np.isnan(ratings_t)) ratings_sw1_t = ratings_sw1[valid_indices2]
+ratings_t_sw1 = ratings_t[valid_indices2]
+varCorrs2 = np.corrcoef(ratings_sw1_t,ratings_t_sw1)
+rSquared2 = varCorrs2[0,1]**2
+valid_indices3 = (~np.isnan(ratings_sw1)) & (~np.isnan(ratings_t)) & (~np.isnan(ratings_sw2))
+ratings_t_all = ratings_t[valid_indices3]
+
+slope2, intercept2, r_value2, p_value2, std_err2 = linregress(ratings_sw1_t, ratings_t_sw1)
+# Print slope and intercept print("Slope:", slope2) print("Intercept:", intercept2)
+plt.plot(ratings_sw1_t, ratings_t_sw1,'o',markersize=3)
+plt.xlabel('Star Wars I1')
+plt.ylabel('Titanic')
+yHat2 = slope2*ratings_sw1_t + intercept2 # slope-intercept form, y = mx + b
+plt.plot(ratings_sw1_t,yHat2,color='orange',linewidth=3) # orange line for the fox
+plt.title('By Hand: R^2 = {:.3f}'.format(rSquared2)) # add title, r-squared rounded to nearest thousandth
+RMSE_t_sw1 = np.sqrt(np.mean((ratings_t_sw1 - yHat2)**2))
+#D4
+data_edu = data[1:,479] data_income = data[1:,481] data_ses = data[1:,478]
+edu_ses_combined = np.stack((data_edu,data_ses), axis=1) corr_edu_income = np.corrcoef(data_edu,data_income)
+# partial correlation
+
+model_ses_edu = LinearRegression().fit(data_ses.reshape(len(data_slice),1),data_edu) slope_ses_edu, intercept_ses_edu = model_ses_edu.coef_, model_ses_edu.intercept_ edu_predict = slope_ses_edu * data_ses + intercept_ses_edu
+ses_edu_residual = (edu_predict - data_edu)
+model_ses_income = LinearRegression().fit(data_ses.reshape(len(data_slice),1),data_income)
+slope_ses_income, intercept_ses_income = model_ses_income.coef_, model_ses_income.intercept_
+income_predict = slope_ses_income * data_ses + intercept_ses_income ses_income_residual = (income_predict - data_income)
+partial_corr = np.corrcoef(ses_edu_residual,ses_income_residual)
+# multiple regression
+twoFactorModel = LinearRegression().fit(edu_ses_combined,data_income) slope3 = twoFactorModel.coef_
+intercept3 = twoFactorModel.intercept_
+rSqrTwo = twoFactorModel.score(edu_ses_combined,data_income) print(rSqrTwo)
+income_predict = slope3[0]*data_edu + slope3[1]*data_ses + intercept3 corr_income_predict = np.corrcoef(income_predict, data_income) RMSE = np.sqrt(np.mean((data_income - income_predict)**2))
+#D6
+data_kb03 = data_pd.iloc[:,313]
+
+data_kb04 = data_pd.iloc[:,176] data_pf = data_pd.iloc[:,297]
+valid_indices_kb_pf = (~np.isnan(data_kb03)) & (~np.isnan(data_kb04)) & (~np.isnan(data_pf))
+data_pb_pf_all = np.stack((data_kb03[valid_indices_kb_pf],data_kb04[valid_indices_kb_pf],data_pf[valid_in dices_kb_pf]),axis=1)
+kb03_mean = np.mean(data_pb_pf_all[:,0]) kb04_mean = np.mean(data_pb_pf_all[:,1]) pf_mean = np.mean(data_pb_pf_all[:,2])
+t1_ind, p1_ind = stats.ttest_ind(data_pb_pf_all[:,0], data_pb_pf_all[:,1]) t2_ind, p2_ind = stats.ttest_ind(data_pb_pf_all[:,0], data_pb_pf_all[:,2]) t3_ind, p3_ind = stats.ttest_ind(data_pb_pf_all[:,1], data_pb_pf_all[:,2])
+t1_paired, p1_paired = stats.ttest_rel(data_pb_pf_all[:,0], data_pb_pf_all[:,1]) t2_paired, p2_paired = stats.ttest_rel(data_pb_pf_all[:,0], data_pb_pf_all[:,2]) t3_paired, p3_paired = stats.ttest_rel(data_pb_pf_all[:,1], data_pb_pf_all[:,2])
+#D7
+data_ij_1981 = data_pd.iloc[:,33] data_ij_1989 = data_pd.iloc[:,4] data_ij_2008 = data_pd.iloc[:,142] data_gb_2016 = data_pd.iloc[:,149] data_fn_2003 = data_pd.iloc[:,138]
+
+data_is_2014 = data_pd.iloc[:,95] data_wws_2013 = data_pd.iloc[:,357]
+# test for median of ij_1981 and ij_1989 (Mann-Whitney U test) valid_indices_ij_1981_1989 = (~np.isnan(data_ij_1981)) & (~np.isnan(data_ij_1989))
+data_ij_1981_1989_both = np.stack((data_ij_1981[valid_indices_ij_1981_1989],data_ij_1989[valid_indices_ij_1981_19 89]),axis=1)
+u_ij_1981_1989_all, p_ij_1981_1989_all = stats.mannwhitneyu(data_ij_1981.dropna(),data_ij_1989.dropna())
+u_ij_1981_1989_both, p_ij_1981_1989_both = stats.mannwhitneyu(data_ij_1981_1989_both[:,0],data_ij_1981_1989_both[:,1])
+# test for median of ij_1989 and ij_2008 (Mann-Whitney U test) valid_indices_ij_1989_2008 = (~np.isnan(data_ij_1989)) & (~np.isnan(data_ij_2008))
+data_ij_1989_2008_both = np.stack((data_ij_1989[valid_indices_ij_1989_2008],data_ij_2008[valid_indices_ij_1989_20 08]),axis=1)
+u_ij_1989_2008_all, p_ij_1989_2008_all = stats.mannwhitneyu(data_ij_1989.dropna(), data_ij_2008.dropna())
+u_ij_1989_2008_both, p_ij_1989_2008_both = stats.mannwhitneyu(data_ij_1989_2008_both[:,0],data_ij_1989_2008_both[:,1])
+# test for median of ij_2008 and gb_2016
+valid_indices_ij2008_gb2016 = (~np.isnan(data_ij_2008)) & (~np.isnan(data_gb_2016))
+
+data_ij2008_gb2016_both = np.stack((data_ij_2008[valid_indices_ij2008_gb2016],data_gb_2016[valid_indices_ij2008_g b2016]),axis=1)
+u_ij2008_gb2016_all, p_ij2008_gb2016_all = stats.mannwhitneyu(data_ij_2008.dropna(),data_gb_2016.dropna())
+u_ij2008_gb2016_both, p_ij2008_gb2016_both = stats.mannwhitneyu(data_ij2008_gb2016_both[:,0], data_ij2008_gb2016_both[:,1])
+# test for distributions of gb_2016 and fn_2003
+valid_indices_gb2016_fn2003 = (~np.isnan(data_gb_2016)) & (~np.isnan(data_fn_2003))
+data_gb2016_fn2003_both = np.stack((data_gb_2016[valid_indices_gb2016_fn2003],data_fn_2003[valid_indices_gb201 6_fn2003]),axis=1)
+u_gb2016_fn2003_all, p_gb2016_fn2003_all = stats.kstest(data_gb_2016.dropna(),data_fn_2003.dropna())
+u_gb2016_fn2003_both, p_gb2016_fn2003_both = stats.kstest(data_gb2016_fn2003_both[:,0],data_gb2016_fn2003_both[:,1])
+# test for distributions of fn_2003 and is_2014
+valid_indices_fn2003_is2014 = (~np.isnan(data_fn_2003)) & (~np.isnan(data_is_2014))
+data_fn2003_is2014_both = np.stack((data_fn_2003[valid_indices_fn2003_is2014],data_is_2014[valid_indices_fn2003_ is2014]),axis=1)
+u_fn2003_is2014_all, p_fn2003_is2014_all = stats.kstest(data_fn_2003.dropna(),data_is_2014.dropna())
+u_fn2003_is2014_both, p_fn2003_is2014_both = stats.kstest(data_fn2003_is2014_both[:,0],data_fn2003_is2014_both[:,1])
+
+# test for distributions of is_2014 and wwc_2013
+valid_indices_is2014_wwc2013 = (~np.isnan(data_is_2014)) & (~np.isnan(data_wws_2013))
+data_is2014_wwc2013_both = np.stack((data_is_2014[valid_indices_is2014_wwc2013],data_wws_2013[valid_indices_is2 014_wwc2013]),axis=1)
+u_is2014_wwc2013_all, p_is2014_wwc2013_all = stats.kstest(data_is_2014.dropna(),data_wws_2013.dropna())
+u_is2014_wwc2013_both, p_is2014_wwc2013_both = stats.kstest(data_is2014_wwc2013_both[:,0],data_is2014_wwc2013_both[:,1])
+# test for median ratings of is_2014 and wwc_2013
+u_is2014_wwc2013_all_mwu, p_is2014_wwc2013_all_mwu = stats.mannwhitneyu(data_is_2014.dropna(),data_wws_2013.dropna())
+u_is2014_wwc2013_both_mwu, p_is2014_wwc2013_both_mwu = stats.mannwhitneyu(data_is2014_wwc2013_both[:,0],data_is2014_wwc2013_both[:,1])
+#D8
+# Mean
+from scipy.stats import bootstrap
+data3 = pd.read_csv('movieDataReplicationSet.csv') data3 = data3.iloc[:,:400]
+col_sample_means = np.mean(data3,axis=0) sorted_samples = col_sample_means.sort_values()
+
+# Confidence Interval
+def bootstrap_confidence_interval95(series, n_bootstrap=1000, ci=95):
+bootstrap_means = np.random.choice(series, (n_bootstrap, len(series)), replace=True).mean(axis=1)
+alpha=1-ci/100
+lower_bound = np.percentile(bootstrap_means, 100 * alpha / 2) upper_bound = np.percentile(bootstrap_means, 100 * (1 - alpha / 2)) return lower_bound, upper_bound
+# Assuming data3 is your DataFrame with movies as columns and each column containing many ratings
+ci_results_95 = {movie: bootstrap_confidence_interval95(data3[movie].dropna(), n_bootstrap=1000, ci=95) for movie in data3.columns}
+# Convert results to DataFrame
+ci_df_95 = pd.DataFrame(ci_results_95, index=['Lower Bound', 'Upper Bound']).T
+def bootstrap_confidence_interval99(series, n_bootstrap=1000, ci=99):
+bootstrap_means = np.random.choice(series, (n_bootstrap, len(series)), replace=True).mean(axis=1)
+alpha=1-ci/100
+lower_bound = np.percentile(bootstrap_means, 100 * alpha / 2) upper_bound = np.percentile(bootstrap_means, 100 * (1 - alpha / 2)) return lower_bound, upper_bound
+
+ci_results_99 = {movie: bootstrap_confidence_interval99(data3[movie].dropna(), n_bootstrap=1000, ci=99) for movie in data3.columns}
+ci_df_99 = pd.DataFrame(ci_results_99, index=['Lower Bound', 'Upper Bound']).T
+ci_widths = pd.DataFrame({
+'Movie': ci_results_95.keys(),
+'Lower Bound': [ci[0] for ci in ci_results_95.values()], 'Upper Bound': [ci[1] for ci in ci_results_95.values()], 'Width': [ci[1] - ci[0] for ci in ci_results_95.values()]
+})
+# Sorting the DataFrame by the width of the confidence intervals ci_widths_sorted = ci_widths.sort_values(by='Width', ascending=True)
+print(ci_df_95.loc["The Life of David Gale (2003)",:]) print(col_sample_means.loc["The Life of David Gale (2003)"])
+print(ci_df_95.loc["Stir Crazy (1980)",:]) print(col_sample_means.loc["Stir Crazy (1980)"])
+print(ci_df_95.loc["Anger Management (2002)",:]) print(col_sample_means.loc["Anger Management (2002)"])
+print(ci_df_99.loc["Billy Madison (1995)",:]) print(col_sample_means.loc["Billy Madison (1995)"])
+
+print(sorted_samples["From Hell (2001)"])
+print(ci_df_95.loc["MacArthur (1977)",:]) print(col_sample_means.loc["MacArthur (1977)"])
+print(ci_df_99.loc["Saving Private Ryan (1998)",:]) print(col_sample_means.loc["Saving Private Ryan (1998)"])
+# Z-score for 95% confidence z_score = 1.96
+# Prepare an empty list to store results confidence_intervals = []
+# Iterate through each column in the DataFrame for col_name in data3.columns:
+# Drop NaN values for accurate calculations clean_data = data3[col_name].dropna() mean_value = clean_data.mean()
+std_dev = clean_data.std()
+sample_size = clean_data.count()
+# Calculate the standard error of the mean std_error = std_dev / np.sqrt(sample_size)
+
+# Calculate the margins of the confidence interval margin_error = z_score * std_error
+# Calculate the confidence interval lower_bound = mean_value - margin_error upper_bound = mean_value + margin_error
+# Append the results to the list
+confidence_intervals.append((col_name, mean_value, lower_bound, upper_bound))
+# Create a DataFrame from the results
+ci_df_95 = pd.DataFrame(confidence_intervals, columns=['Column Name', 'Mean', 'Lower 95% CI', 'Upper 95% CI'])
+print(ci_df_95.loc[1,:])
+# Pascal's method numRepeats = int(1e4) nSample = len(data3)
+tychenicMeans = np.empty([numRepeats,1]) tychenicMeans[:] = np.NaN
+tychenicIndices = np.random.randint(0,nSample,[nSample ,numRepeats]) movies = ["The Life of David Gale (2003)","Alien (1979)"]
+
+for x in movies:
+movie_search = x;
+temp = data3.loc[:,movie_search] # store that data in temp array for ii in range(numRepeats): # loop through each repeat
+tempIndices = tychenicIndices[:,ii] # indices for this iteration tychenicMeans[ii] = np.mean(temp[tempIndices])
+confidenceLevel = 95
+lowerBoundPercent = (100 - confidenceLevel)/2 # percentile of the lower bound
+upperBoundPercent = 100 - lowerBoundPercent # percentile of the upper bound
+lowerBoundIndex = round(numRepeats/100*lowerBoundPercent)-1 # what index of the number of repeats does that percentile correspond to?
+upperBoundIndex = round(numRepeats/100*upperBoundPercent)-1 # dito, but for the upper bound
+#Logic: Divide by 100 because we convert the repeats to percentages, multiply by the cutou, -1 for python indexing
+sortedSamples = np.sort(tychenicMeans,axis=0) sorted_data_for_ci = np.sort(tychenicMeans,axis=0)
+lowerBoundValue = float(sortedSamples[lowerBoundIndex]) upperBoundValue = float(sortedSamples[upperBoundIndex])
+print(movie_search + str(lowerBoundValue) + " " + str(upperBoundValue))
+# D10
+
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler import statsmodels.api as sm
+data_sensation = data3.iloc[:,400:420] data_sensation_dropped = data_sensation.dropna() data_personality = data3.iloc[:,420:464] data_personality_dropped = data_personality.dropna() data_experience = data3.iloc[:,464:474] data_experience_dropped = data_experience.dropna()
+# PCA for sensation
+zscoredData = stats.zscore(data_sensation_dropped) pca = PCA().fit(zscoredData)
+eigVals = pca.explained_variance_
+loadings_s = pca.components_
+rotatedData = pca.fit_transform(zscoredData) varExplained = eigVals/eigVals.sum()*100
+kaiserThreshold = 1
+print('Number of factors selected by Kaiser criterion:', np.count_nonzero(eigVals > kaiserThreshold))
+num_sensation = len(data_sensation.columns)
+x = np.linspace(1,num_sensation,num_sensation)
+
+whichPrincipalComponent = 0 # Select and look at one factor at a time, in Python indexing
+plt.bar(x,loadings_s[whichPrincipalComponent,:]*-1) # note: eigVecs multiplied by -1 because the direction is arbitrary
+#and Python reliably picks the wrong one. So we flip it. plt.xlabel('Question')
+plt.ylabel('Loading')
+plt.show()
+# PCA for personality
+zscoredData2 = stats.zscore(data_personality) pca = PCA().fit(zscoredData2)
+eigVals = pca.explained_variance_
+loadings = pca.components_
+rotatedData = pca.fit_transform(zscoredData) varExplained = eigVals/eigVals.sum()*100
+kaiserThreshold = 1
+print('Number of factors selected by Kaiser criterion:', np.count_nonzero(eigVals > kaiserThreshold))
+# PCA for experience
+zscoredData3 = stats.zscore(data_experience) pca = PCA().fit(zscoredData3)
+eigVals = pca.explained_variance_ loadings_ex = pca.components_
+rotatedData = pca.fit_transform(zscoredData) varExplained = eigVals/eigVals.sum()*100
+
+kaiserThreshold = 1
+print('Number of factors selected by Kaiser criterion:', np.count_nonzero(eigVals > kaiserThreshold))
+num_experience = len(data_experience.columns)
+x = np.linspace(1,num_experience,num_experience)
+whichPrincipalComponent = 1 # Select and look at one factor at a time, in Python indexing
+plt.bar(x,loadings_ex[whichPrincipalComponent,:]*-1) # note: eigVecs multiplied by -1 because the direction is arbitrary
+#and Python reliably picks the wrong one. So we flip it. plt.xlabel('Question')
+plt.ylabel('Loading')
+plt.show()
+data_saw = data3.loc[:,"Saw (2004)"] median_rating = np.nanmedian(data_saw) def discretize_rating(rating):
+if rating < median_rating: return 0
+elif rating > median_rating: return 1
+else:
+return np.nan
+data3['Discretized Rating'] = data_saw.apply(discretize_rating)
+
+data_saw_dis = np.stack((data_saw,data3.loc[:,'Discretized Rating']), axis=1) data_saw_dis_bi = data_saw_dis[:,1]
+data_sensation_1st = data3.iloc[:,416]
+valid_indices_sensation_saw = np.logical_and(~np.isnan(data_sensation_1st),~np.isnan(data_saw_dis_bi))
+data_sensation_all = data_sensation_1st[valid_indices_sensation_saw] data_saw_all = data_saw_dis_bi[valid_indices_sensation_saw] logistic_combined = np.stack((data_sensation_all,data_saw_all), axis=1)
+x = logistic_combined[:,0].reshape(len(logistic_combined),1) y = logistic_combined[:,1]
+model = LogisticRegression().fit(x,y) print(model.coef_)
+data_saw_dis = np.stack((data_saw, data3.loc[:, 'Discretized Rating']), axis=1) data_saw_dis_bi = data_saw_dis[:, 1]
+data_sensation_1st = data3.iloc[:, 416]
+valid_indices = np.logical_and(~np.isnan(data_sensation_1st), ~np.isnan(data_saw_dis_bi))
+data_sensation_all = data_sensation_1st[valid_indices] data_saw_all = data_saw_dis_bi[valid_indices]
+
+# Prepare data for logistic regression
+x = data_sensation_all.to_numpy().reshape(-1, 1) # Predictor y = data_saw_all # Response
+# Add an intercept to the model x = sm.add_constant(x)
+# Fit the logistic regression model
+model = sm.Logit(y, x)
+result = model.fit(disp=0) # disp=0 suppresses the fit summary
+# Extracting and printing the β1 coeuicient and its p-value beta1 = result.params[1]
+p_value = result.pvalues[1]
+print("β1 Coeuicient:", beta1) print("P-value for β1:", p_value)
